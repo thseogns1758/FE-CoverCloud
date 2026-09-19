@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { Box } from "@mui/material";
+import React, { useRef } from "react";
+import { Box, ClickAwayListener, Popper } from "@mui/material";
 import { HiDotsHorizontal, HiDotsVertical } from "react-icons/hi";
 import { FiEdit3, FiTrash2 } from "react-icons/fi";
 
@@ -22,154 +22,161 @@ const PlaylistOptionButton = ({
 }: PlaylistOptionButtonProps) => {
   const [isOptionOpen, setIsOptionOpen] = React.useState(false);
 
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
-      ) {
-        setIsOptionOpen(false);
-      }
-    };
-
-    if (isOptionOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOptionOpen]);
+  const handleClose = () => {
+    setIsOptionOpen(false);
+  };
 
   return (
-    <Box
-      ref={wrapperRef}
-      sx={{
-        position: "relative",
-        display: "flex",
-        alignItems: isCenter ? "center" : "flex-start",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      {/* ... 버튼 */}
+    <ClickAwayListener onClickAway={handleClose}>
       <Box
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-
-          onClick();
-          setIsOptionOpen((prev) => !prev);
-        }}
         sx={{
-          width: "34px",
-          height: "34px",
-          borderRadius: "50%",
-
+          position: "relative",
           display: "flex",
-          alignItems: "center",
+          alignItems: isCenter ? "center" : "flex-start",
           justifyContent: "center",
-
-          cursor: "pointer",
-
-          backgroundColor: "transparent",
-
-          transition: "background-color 0.15s ease",
-
-          "&:hover": {
-            backgroundColor: "#E5E5E5",
-          },
+          flexShrink: 0,
         }}
       >
-        {colIcon ? (
-          <HiDotsVertical size={21} />
-        ) : (
-          <HiDotsHorizontal size={21} />
-        )}
-      </Box>
-
-      {/* 옵션 메뉴 */}
-      {isOptionOpen && isLogin && (
+        {/* 점 3개 버튼 */}
         <Box
-          sx={{
-            position: "absolute",
-            top: "40px",
-            right: 0,
+          ref={buttonRef}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
 
-            width: "94px",
-            backgroundColor: "#fff",
+            onClick();
 
-            borderRadius: "12px",
-            overflow: "hidden",
-
-            boxShadow: "0px 6px 20px rgba(0, 0, 0, 0.15)",
-
-            zIndex: 100,
-            py: "4px",
+            setIsOptionOpen((prev) => !prev);
           }}
+          sx={{
+            width: "34px",
+            height: "34px",
+            borderRadius: "50%",
+
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+
+            cursor: "pointer",
+
+            backgroundColor: "transparent",
+
+            transition: "background-color 0.15s ease",
+
+            "&:hover": {
+              backgroundColor: "#E5E5E5",
+            },
+          }}
+        >
+          {colIcon ? (
+            <HiDotsVertical size={21} />
+          ) : (
+            <HiDotsHorizontal size={21} />
+          )}
+        </Box>
+
+        {/* 옵션 메뉴 */}
+        <Popper
+          open={isOptionOpen && isLogin}
+          anchorEl={buttonRef.current}
+          placement="bottom-end"
+          sx={{
+            zIndex: 1500,
+          }}
+          modifiers={[
+            {
+              name: "offset",
+              options: {
+                offset: [0, 6],
+              },
+            },
+          ]}
         >
           <Box
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-
-              navigateToEdit();
-              setIsOptionOpen(false);
             }}
             sx={{
-              height: "44px",
+              width: "94px",
 
-              display: "flex",
-              alignItems: "center",
+              backgroundColor: "#fff",
 
-              gap: "14px",
-              px: "16px",
+              borderRadius: "12px",
+              overflow: "hidden",
 
-              fontSize: "13px",
-              cursor: "pointer",
+              boxShadow: "0px 6px 20px rgba(0, 0, 0, 0.15)",
 
-              "&:hover": {
-                backgroundColor: "#F5F5F5",
-              },
+              py: "4px",
             }}
           >
-            <FiEdit3 size={18} />
-            수정
+            {/* 수정 */}
+            <Box
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                navigateToEdit();
+                handleClose();
+              }}
+              sx={{
+                height: "44px",
+
+                display: "flex",
+                alignItems: "center",
+
+                gap: "14px",
+                px: "16px",
+
+                fontSize: "13px",
+
+                cursor: "pointer",
+
+                "&:hover": {
+                  backgroundColor: "#F5F5F5",
+                },
+              }}
+            >
+              <FiEdit3 size={18} />
+              수정
+            </Box>
+
+            {/* 삭제 */}
+            <Box
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                openDeleteModal();
+                handleClose();
+              }}
+              sx={{
+                height: "44px",
+
+                display: "flex",
+                alignItems: "center",
+
+                gap: "14px",
+                px: "16px",
+
+                fontSize: "13px",
+
+                cursor: "pointer",
+
+                "&:hover": {
+                  backgroundColor: "#F5F5F5",
+                },
+              }}
+            >
+              <FiTrash2 size={18} />
+              삭제
+            </Box>
           </Box>
-
-          <Box
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-
-              openDeleteModal();
-              setIsOptionOpen(false);
-            }}
-            sx={{
-              height: "44px",
-
-              display: "flex",
-              alignItems: "center",
-
-              gap: "14px",
-              px: "16px",
-
-              fontSize: "13px",
-              cursor: "pointer",
-
-              "&:hover": {
-                backgroundColor: "#F5F5F5",
-              },
-            }}
-          >
-            <FiTrash2 size={18} />
-            삭제
-          </Box>
-        </Box>
-      )}
-    </Box>
+        </Popper>
+      </Box>
+    </ClickAwayListener>
   );
 };
 
