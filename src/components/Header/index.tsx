@@ -11,60 +11,64 @@ import { useTheme } from "@mui/material/styles";
 import AccountModal from "../modal/AccountModal";
 import AvatarComponent from "../auth/AvatarComponent";
 import { IoIosAddCircle } from "react-icons/io";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthMeQuery } from "@/app/api/auth/authMe";
 import { IoClose } from "react-icons/io5";
 import { useAuthStore } from "@/app/store/useAuthStore";
 import Image from "next/image";
 import { useMediaQuery } from "@mui/material";
+import { useRouter } from "next/navigation";
+import { useSearchParamUpdater } from "@/app/hook/useSearchParamsUpdater";
 
 export const dynamic = "force-dynamic";
 
 const Header = () => {
-  const searchParams = useSearchParams();
-  const keyword = searchParams.get("q") ?? "";
-
-  const page = Number(searchParams.get("page") ?? 1);
   const theme = useTheme();
+  const router = useRouter();
+  const { searchParams } = useSearchParamUpdater();
+
   const openLoginModal = useModalStore((state) => state.openLoginModal);
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLogin = useAuthStore((state) => state.isLogin);
-  // const isLogin = useAuthStore((state) => state.isLogin);
 
-  const { data, error } = useAuthMeQuery();
+  const { data } = useAuthMeQuery();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [openAccountModal, setOpenAccountModal] = React.useState(false);
   const [openSearchBar, setOpenSearchBar] = React.useState(false);
 
-  const router = useRouter();
-
   const [searchType, setSearchType] = React.useState<"title" | "tags">("title");
 
-  /** ✅ URL 쿼리 → input 동기화 */
-
+  /** URL 쿼리 → input 동기화 */
   React.useEffect(() => {
     const q = searchParams.get("q");
     const type = searchParams.get("searchType");
 
     if (q !== null) {
       setSearchQuery(q);
+    } else {
+      setSearchQuery("");
     }
 
     if (type === "tags" || type === "title") {
       setSearchType(type);
+    } else {
+      setSearchType("title");
     }
   }, [searchParams]);
+
   React.useEffect(() => {
     if (!isMobile) {
       setOpenSearchBar(false);
     }
   }, [isMobile]);
+
   const handleSearch = () => {
-    if (!searchQuery.trim()) return;
+    const trimmedQuery = searchQuery.trim();
+
+    if (!trimmedQuery) return;
 
     router.push(
-      `/search?q=${encodeURIComponent(searchQuery)}&searchType=${searchType}&page=1`,
+      `/search?q=${encodeURIComponent(trimmedQuery)}&searchType=${searchType}&page=1`,
     );
   };
   const handleLogin = () => {
@@ -74,6 +78,7 @@ const Header = () => {
   const openAccountModalHandler = () => {
     setOpenAccountModal((prev) => !prev);
   };
+
   const searchBarHandler = (open: boolean) => {
     if (open) {
       handleSearch();
@@ -81,10 +86,10 @@ const Header = () => {
       setOpenSearchBar(true);
     }
   };
+
   const buttonSx = {
     all: "unset",
     position: "absolute",
-
     color: "black",
     cursor: "pointer",
     width: "48px",
@@ -93,6 +98,7 @@ const Header = () => {
     alignItems: "center",
     justifyContent: "center",
   };
+
   return (
     <header>
       <Box
@@ -126,6 +132,7 @@ const Header = () => {
                   height={60}
                 />
               </Box>
+
               <Box
                 sx={{
                   display: "none",
@@ -256,6 +263,7 @@ const Header = () => {
               >
                 <SearchIcon />
               </Button>
+
               {openSearchBar && (
                 <Button
                   disableRipple
@@ -271,11 +279,12 @@ const Header = () => {
               )}
             </Box>
           </Box>
+
           {isLogin ? (
             <Box className="flex" sx={{ gap: 1 }}>
               <Link href="/post/create">
                 {isMobile ? (
-                  <Box sx={{}}>
+                  <Box>
                     <IoIosAddCircle
                       size={58}
                       color={theme.palette.orange.primary}

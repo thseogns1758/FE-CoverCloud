@@ -1,171 +1,115 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useParams } from "next/navigation";
-import { useAuthStore } from "@/app/store/useAuthStore";
-import { useRouter } from "next/navigation";
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Skeleton,
-  SwipeableDrawer,
-  Typography,
-  useMediaQuery,
-} from "@mui/material";
+import React from "react";
+import { Box, CircularProgress, useMediaQuery } from "@mui/material";
 
-import {
-  detectAndValidateMediaUrl,
-  fetchSoundCloudDataWithApi,
-  fetchTiktokDataWithApi,
-  MediaUrlResult,
-} from "@/app/utils/youtube";
-import { deletePost, useReadingPost } from "@/app/api/cover/post";
-import { fetchLike, fetchUnlike } from "@/app/api/cover/like";
+import { useReadingPost } from "@/app/api/cover/post";
+import { useAuthMeQuery } from "@/app/api/auth/authMe";
+import { PopularCoverItem } from "@/app/api/cover/list";
 
-import { IoIosArrowBack } from "react-icons/io";
-import { IoCloseSharp } from "react-icons/io5";
+import PlayerViewer from "@/components/player/PlayerViewer";
+import ConfirmModal from "@/components/player/components/ConfirmModal";
+import { PlayerViewData } from "@/components/player/playerTypes";
 
-import PlayLikeCount from "../PlayLikeCount";
-import ArtistInfo from "../ArtistInfo";
-import CommentSection from "../CommentSection";
-import PopularVideos from "../PopularVideos";
-
-import Modal from "@/components/modal/Modal";
 import theme from "@/app/lib/theme";
 import { useFormatCreatedAt } from "@/app/utils/formetCreatedAt";
-import OptionButton from "@/components/OptionButton";
-import { fetchAuthMeWithCookie, useAuthMeQuery } from "@/app/api/auth/authMe";
-import { useModalStore } from "@/app/store/useModalStore";
-import { useSnackbarStore } from "@/app/store/useSnackbar";
-import { reportPost } from "@/app/api/cover/reportPost";
-import { PopularCoverItem } from "@/app/api/cover/list";
-const genres = [
-  { title: "K-POP", value: "K_POP" },
-  { title: "J-POP", value: "J_POP" },
-  { title: "POP", value: "POP" },
-  { title: "기타", value: "OTHER" },
-];
-const PostClient = ({
-  id,
-  initialData,
-}: {
+import { MediaUrlResult } from "@/app/utils/youtube";
+import { usePlayerActions } from "@/app/hook/usePlayerActions";
+
+type PostClientProps = {
   id: string;
   initialData?: PopularCoverItem;
-}) => {
-  const router = useRouter();
+};
 
+/**
+ * 머지 전/후 데이터 형태를 모두 받기 위한 정규화 함수.
+ *
+ * HEAD 쪽:
+ *   postData === PopularCoverItem
+ *
+ * feature/playlist 쪽:
+ *   postData === AxiosResponse<{ data: PopularCoverItem }>
+ */
+const normalizePostData = (data: unknown): PopularCoverItem | undefined => {
+  if (!data || typeof data !== "object") {
+    return undefined;
+  }
+
+  if ("data" in data) {
+    const firstData = (data as { data?: unknown }).data;
+
+    if (firstData && typeof firstData === "object" && "data" in firstData) {
+      return (firstData as { data?: PopularCoverItem }).data;
+    }
+  }
+
+  return data as PopularCoverItem;
+};
+
+const PostClient = ({ id, initialData }: PostClientProps) => {
   const userInfo = useAuthMeQuery();
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const isLogin = useAuthStore((state) => state.isLogin);
-  const openLoginModal = useModalStore((state) => state.openLoginModal);
-  const initialVideo = initialData?.link
-    ? detectAndValidateMediaUrl(initialData?.link)
-    : null;
-  const initialCreatedAt = useFormatCreatedAt(initialData?.createdAt || "");
-  const [youtubeVideoId, setYoutubeVideoId] = React.useState<string>(
-    initialVideo?.embedUrl || "",
-  );
-  const [coverTitle, setCoverTitle] = React.useState<string>(
-    initialData?.coverTitle || "",
-  );
-  const [coverArtist, setCoverArtist] = React.useState<string>(
-    initialData?.coverArtist || "",
-  );
-  const [createAt, setCreateAt] = React.useState<string>(
-    initialCreatedAt || "",
-  );
-  const [coverGenre, setCoverGenre] = React.useState<string>(
-    initialData?.coverGenre || "",
-  );
-  const [tags, setTags] = React.useState<string[]>(initialData?.tags || []);
-  const [originalArtist, setOriginalArtist] = React.useState<string>(
-    initialData?.originalArtist || "",
-  );
-  const [originalTitle, setOriginalTitle] = React.useState<string>(
-    initialData?.originalTitle || "",
-  );
-  const [originalCoverImageUrl, setOriginalCoverImageUrl] =
-    React.useState<string>(initialData?.originalCoverImageUrl || "");
-  const [videoOwner, setVideoOwner] = React.useState<number | null>(null);
-  const [likeCount, setLikeCount] = React.useState<number>(
-    initialData?.likeCount || 0,
-  );
-  //상태
-  const [isCommentOpen, setIsCommentOpen] = React.useState(false);
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = React.useState(false);
-  const [toggleLikeButton, setToggleLikeButton] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
+
+  /**
+   * HEAD에서 사용하던 initialData 전달 방식은 그대로 유지한다.
+   * { data: initialData } 로 감싸지 않는다.
+   */
   const {
     data: postData,
     isLoading: isPostLoading,
     error,
-  } = useReadingPost(id as string, initialData);
+  } = useReadingPost(id, initialData);
+
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const videoId: MediaUrlResult = postData
-    ? detectAndValidateMediaUrl(postData.link)
-    : { platform: null, id: null, isValid: false, originalUrl: "" };
-  const formetCreatedAt = postData
-    ? useFormatCreatedAt(postData.createdAt)
-    : "";
-  const getAspectRatio = (videoId: MediaUrlResult | null) => {
-    if (!videoId || !videoId.platform) return "16 / 9"; // 기본값
+  /**
+   * HEAD의 직접 데이터 형태와 feature/playlist의 Axios 응답 형태를
+   * 둘 다 처리한다.
+   */
+  const post = normalizePostData(postData);
 
-    switch (videoId.platform) {
-      case "youtube":
-        return "16 / 9";
-      case "tiktok":
-        return "16 / 9";
+  const formattedCreatedAt = useFormatCreatedAt(post?.createdAt ?? "");
+
+  /**
+   * HEAD에 있던 좋아요/수정/삭제/신고/뒤로가기 로직은
+   * feature/playlist에서 usePlayerActions로 이동한 상태.
+   */
+  const {
+    isLiked,
+    likeCount,
+    isLikeLoading,
+    navigateToEdit,
+    reportHandler,
+    deleteHandler,
+    likeToggleHandler,
+    goBack,
+  } = usePlayerActions({
+    coverId: id,
+    initialIsLiked: post?.isLiked ?? false,
+    initialLikeCount: post?.likeCount ?? 0,
+    editHref: `/post/${id}/edit`,
+    afterDeleteHref: "/",
+    onDeleteModalClose: () => setIsDeleteModalOpen(false),
+    onReportModalClose: () => setIsReportModalOpen(false),
+  });
+
+  const getAspectRatio = (videoData: MediaUrlResult | null) => {
+    if (!videoData?.platform) return "16 / 9";
+
+    switch (videoData.platform) {
       case "soundcloud":
         return "100 / 20";
+
+      case "youtube":
+      case "tiktok":
       default:
         return "16 / 9";
     }
   };
-  React.useEffect(() => {
-    if (!postData) return;
-    const rawLink = postData.link; // 서버에서 받아온 원본 링크
-    const videoInfo = detectAndValidateMediaUrl(rawLink);
 
-    // 비동기로 ID와 Embed URL을 확정짓는 함수
-    const resolveMedia = async () => {
-      // 1. 틱톡이고, 단축 URL(embedUrl이 없는 상태)인 경우
-      if (videoInfo.platform === "tiktok" && !videoInfo.embedUrl) {
-        const tiktokData = await fetchTiktokDataWithApi(rawLink);
-        if (tiktokData && tiktokData.embedUrl) {
-          setYoutubeVideoId(tiktokData.embedUrl); // 진짜 숫자 ID가 포함된 주소로 세팅
-        }
-      }
-      if (videoInfo.platform === "soundcloud" && !videoInfo.embedUrl) {
-        const soundcloudData = await fetchSoundCloudDataWithApi(rawLink);
-        if (soundcloudData && soundcloudData.embedUrl) {
-          setYoutubeVideoId(soundcloudData.embedUrl); // 진짜 숫자 ID가 포함된 주소로 세팅
-        }
-      }
-      // 2. 유튜브나 이미 ID가 있는 틱톡, 사운드클라우드인 경우
-      else if (videoInfo.embedUrl) {
-        setYoutubeVideoId(videoInfo.embedUrl);
-      }
-    };
-
-    resolveMedia();
-
-    setCoverTitle(postData.coverTitle);
-    setCoverArtist(postData.coverArtist);
-    setOriginalTitle(postData.originalTitle);
-    setOriginalArtist(postData.originalArtist);
-    setOriginalCoverImageUrl(postData.originalCoverImageUrl);
-    setCreateAt(formetCreatedAt);
-    setCoverGenre(postData.coverGenre);
-    setTags(postData.tags);
-    setVideoOwner(postData.userId);
-    setToggleLikeButton(postData.isLiked);
-    setLikeCount(postData.likeCount);
-  }, [postData]);
-
-  if (isPostLoading)
+  if (isPostLoading) {
     return (
       <Box
         className="mt-8"
@@ -182,454 +126,88 @@ const PostClient = ({
         />
       </Box>
     );
+  }
 
   if (error) {
     return <Box>페이지 로드에 실패하였습니다.</Box>;
   }
-  if (!id) {
-    return <div>찾을 수 없는 페이지입니다!</div>;
+
+  if (!id || !post) {
+    return <Box>찾을 수 없는 페이지입니다!</Box>;
   }
 
-  const navigateToEdit = async () => {
-    const isAuthenticated = await fetchAuthMeWithCookie(accessToken);
+  const playerData: PlayerViewData = {
+    id: Number(id),
+    userId: post.userId,
 
-    if (!isAuthenticated.success) {
-      openLoginModal();
-      useSnackbarStore
-        .getState()
-        .show("로그인 후 수정할 수 있습니다.", "error");
-      return;
-    } else {
-      router.push(`/post/${id}/edit`);
-    }
-  };
-  const reportPostHandler = async () => {
-    const isAuthenticated = await fetchAuthMeWithCookie(accessToken);
-    if (!isAuthenticated.success) {
-      openLoginModal();
-      useSnackbarStore
-        .getState()
-        .show("로그인 후 신고할 수 있습니다.", "error");
-      setIsReportModalOpen(false);
-      return;
-    }
-    try {
-      const reportResult = await reportPost(id as string);
-      if (reportResult.data.success) {
-        setIsReportModalOpen(false);
-        useSnackbarStore.getState().show("신고가 접수되었습니다.", "success");
-      } else {
-        useSnackbarStore.getState().show("신고 실패", "error");
-        setIsReportModalOpen(false);
-      }
-      setIsDeleteModalOpen(false);
-    } catch (error) {
-      setIsDeleteModalOpen(false);
-      useSnackbarStore.getState().show("신고 실패", "error");
-    }
-  };
-  const deletePostHandler = async () => {
-    const isAuthenticated = await fetchAuthMeWithCookie(accessToken);
-    if (!isAuthenticated.success) {
-      openLoginModal();
-      useSnackbarStore
-        .getState()
-        .show("로그인 후 삭제할 수 있습니다.", "error");
-      setIsDeleteModalOpen(false);
-      return;
-    }
-    try {
-      const deleteResult = await deletePost(id as string | string[]);
-      if (deleteResult.success) {
-        useSnackbarStore.getState().show("삭제가 완료되었습니다.", "success");
-        router.push("/");
-      } else {
-        useSnackbarStore.getState().show("삭제 실패", "error");
-      }
-      setIsDeleteModalOpen(false);
-    } catch (error) {
-      console.log(error);
-      setIsDeleteModalOpen(false);
-    }
-  };
-  const likeToggleHandler = async () => {
-    if (!isLogin && !accessToken) {
-      openLoginModal();
-      useSnackbarStore
-        .getState()
-        .show("로그인 후 좋아요를 할 수 있습니다.", "error");
-      return;
-    }
-    if (isLoading) return;
-    setIsLoading(true);
-    if (toggleLikeButton) {
-      const unlikeResult = await fetchUnlike(id as string);
-      if (!unlikeResult.success) {
-        useSnackbarStore.setState({
-          open: true,
-          message: "좋아요 취소에 실패했습니다.",
-        });
-        return;
-      } else {
-        useSnackbarStore.setState({
-          open: true,
-          message: "좋아요가 취소되었습니다.",
-        });
-        setToggleLikeButton(false);
-        setLikeCount((prev) => prev - 1);
-      }
-    } else {
-      const likeResult = await fetchLike(id as string);
-      if (!likeResult.success) {
-        useSnackbarStore.setState({
-          open: true,
-          message: "좋아요에 실패했습니다.",
-        });
-        return;
-      } else {
-        useSnackbarStore.setState({
-          open: true,
-          message: "좋아요가 추가되었습니다.",
-        });
-        setToggleLikeButton(true);
-        setLikeCount((prev) => prev + 1);
-      }
-      console.log("Like", likeResult);
-    }
-    setIsLoading(false);
+    link: post.link || "",
+
+    coverTitle: post.coverTitle || "",
+    coverArtist: post.coverArtist || "",
+
+    originalTitle: post.originalTitle || "",
+    originalArtist: post.originalArtist || "",
+    originalCoverImageUrl: post.originalCoverImageUrl || "",
+
+    coverGenre: post.coverGenre || "",
+    tags: post.tags || [],
+
+    createdAt: formattedCreatedAt,
+
+    likeCount,
+    viewCount: post.viewCount ?? 0,
+    isLiked,
   };
 
   return (
-    <Box className="main-wrapper">
-      <Box className="post-content">
-        {isMobile && (
-          <Box
-            className="flex justify-between"
-            sx={{
-              my: "20px",
-              mx: "10px",
-            }}
-          >
-            <Box
-              className="flex items-center justify-center"
-              onClick={() => router.back()}
-            >
-              <IoIosArrowBack size={24} />
-            </Box>
+    <>
+      <PlayerViewer
+        data={playerData}
+        userProfileImage={userInfo.data?.data?.profileImage || ""}
+        isMobile={isMobile}
+        isLikedLoading={isLikeLoading}
+        showComments
+        showAddPlaylistButton
+        showOptions
+        showPopularVideos
+        showLikeCount
+        onBack={goBack}
+        onLikeToggle={likeToggleHandler}
+        onEdit={navigateToEdit}
+        onDelete={() => setIsDeleteModalOpen(true)}
+        onReport={() => setIsReportModalOpen(true)}
+        onVideoEnded={() => {
+          // 게시글 단건 페이지에서는 다음 곡 이동 없음
+        }}
+        getAspectRatio={getAspectRatio}
+      />
 
-            <OptionButton
-              isLogin={userInfo.data?.data?.userId === videoOwner}
-              openDeleteModal={() => setIsDeleteModalOpen(true)}
-              navigateToEdit={navigateToEdit}
-              openReportModal={() => setIsReportModalOpen(true)}
-            />
-          </Box>
-        )}
-        <Box sx={{ marginBottom: "12px" }}>
-          {youtubeVideoId ? (
-            <iframe
-              src={youtubeVideoId}
-              width="100%"
-              height={videoId?.platform === "soundcloud" ? "200px" : "auto"}
-              style={{
-                aspectRatio: getAspectRatio(videoId),
-                borderRadius: "12px",
-                border: "none",
-              }}
-              allowFullScreen
-            />
-          ) : (
-            /* 동영상이 준비되기 전 보여줄 스켈레톤 */
-            <Skeleton
-              variant="rounded"
-              width="100%"
-              sx={{
-                aspectRatio: getAspectRatio(videoId), // 비디오와 동일한 비율 유지
-                borderRadius: "12px",
-                height: videoId?.platform === "soundcloud" ? "200px" : "auto",
-              }}
-              animation="wave"
-            />
-          )}
-        </Box>
-        <Box>
-          <Box className="flex justify-between items-center">
-            <h1 className="H1 mb-1">{coverTitle}</h1>
-            {!isMobile && (
-              <Box className="flex gap-4">
-                <PlayLikeCount
-                  viewCount={postData?.viewCount}
-                  likeCount={likeCount}
-                  isLiked={toggleLikeButton}
-                  isLoading={isLoading}
-                  isMobile={isMobile}
-                  onLikeToggle={likeToggleHandler}
-                />
-
-                {!isMobile && (
-                  <OptionButton
-                    isLogin={userInfo.data?.data?.userId === videoOwner}
-                    openDeleteModal={() => setIsDeleteModalOpen(true)}
-                    navigateToEdit={navigateToEdit}
-                    openReportModal={() => setIsReportModalOpen(true)}
-                    isCenter
-                  />
-                )}
-              </Box>
-            )}
-          </Box>
-
-          <Box className="flex B1 mb-2 ">
-            <Box>커버 아티스트： </Box>
-            <Box sx={{ fontWeight: "bold" }}>{coverArtist}</Box>
-          </Box>
-          <Box className="flex C2 mb-4">
-            <Box>{createAt} 작성</Box>
-          </Box>
-          <Box
-            className="flex gap-2 items-center min-w-0"
-            sx={{ marginBottom: "20px", flexWrap: "wrap" }}
-          >
-            <Box className="flex-shrink-0 S3">
-              {genres.find((g) => g.value === coverGenre)?.title || "기타"}
-            </Box>
-
-            <Box className="w-[1px] h-4 bg-black flex-shrink-0" />
-
-            {/* 태그 묶음 */}
-            <Box
-              className="flex flex-1"
-              sx={{
-                fontSize: "16px",
-                fontWeight: "bold",
-                color: theme.palette.purple.primary,
-                flexWrap: "wrap",
-              }}
-            >
-              {tags?.map((t) => (
-                <Box
-                  key={t}
-                  className="mr-2"
-                  sx={{ cursor: "pointer", "&:hover": { opacity: 0.7 } }}
-                  onClick={() =>
-                    router.push(
-                      `/search?q=${encodeURIComponent(t)}&searchType=tags`,
-                    )
-                  }
-                >
-                  #{t}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-          {isMobile && (
-            <Box className="mb-5">
-              <PlayLikeCount
-                viewCount={postData?.viewCount}
-                likeCount={likeCount}
-                isLiked={toggleLikeButton}
-                isLoading={isLoading}
-                isMobile={isMobile}
-                onLikeToggle={likeToggleHandler}
-              />
-            </Box>
-          )}
-          <ArtistInfo
-            coverArtist={originalArtist || "정보없음"}
-            songTitle={originalTitle || "정보없음"}
-            coverUrl={originalCoverImageUrl || ""}
-            isMobile={isMobile}
-          />
-          {!isPostLoading && isMobile && (
-            <Box
-              onClick={() => setIsCommentOpen(true)}
-              sx={{
-                p: 2,
-
-                bgcolor: theme.palette.gray.secondary,
-                borderRadius: "8px",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <Box className="B1">댓글 보기</Box>
-              <Typography
-                sx={{ color: theme.palette.gray.primary }}
-              ></Typography>
-            </Box>
-          )}
-          {!isPostLoading && !isMobile && (
-            <CommentSection
-              id={Number(id)}
-              currentUserId={userInfo.data?.data?.userId}
-              userProfileImage={userInfo.data?.data?.profileImage || ""}
-            />
-          )}
-        </Box>
-      </Box>
-      <Box className="sidebar-content">
-        <PopularVideos isViewer={!isMobile} currentCoverId={Number(id)} />
-      </Box>
-      {isMobile && (
-        <SwipeableDrawer
-          anchor="bottom"
-          open={isCommentOpen}
-          onClose={() => setIsCommentOpen(false)}
-          onOpen={() => setIsCommentOpen(true)}
-          // 드로어 높이 및 리사이징 설정
-          PaperProps={{
-            sx: {
-              height: "75dvh", // 화면의 75% 차지
-              borderTopLeftRadius: "20px",
-              borderTopRightRadius: "20px",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            },
-          }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              p: 2,
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            <Typography variant="h6" fontWeight={700}>
-              댓글
-            </Typography>
-            <Button onClick={() => setIsCommentOpen(false)}>
-              <IoCloseSharp size={32} />
-            </Button>
-          </Box>
-
-          <Box sx={{ flexGrow: 1, overflowY: "auto", p: 2 }}>
-            <CommentSection
-              id={Number(id)}
-              currentUserId={userInfo.data?.data?.userId}
-              userProfileImage={userInfo.data?.data?.profileImage || ""}
-            />
-          </Box>
-        </SwipeableDrawer>
-      )}
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-      >
-        <Box
-          className="flex flex-col items-center"
-          sx={{
-            width: "100%",
-            bgcolor: "#fff",
-            borderRadius: "12px",
-            p: "40px",
-          }}
-        >
-          {/* 제목 */}
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: "8px" }}>
-            게시글 삭제
-          </Typography>
-
-          {/* 설명 */}
-
-          <Typography
-            sx={{
-              fontSize: "20px",
-              color: "#666",
-              mb: "24px",
-            }}
-          >
+        title="게시글 삭제"
+        description={
+          <>
             삭제한 게시글은 다시 복구할 수 없습니다.
             <br />
             정말 삭제하시겠습니까?
-          </Typography>
+          </>
+        }
+        confirmText="삭제"
+        confirmColor="error"
+        onConfirm={deleteHandler}
+      />
 
-          {/* 버튼 영역 */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "16px",
-              width: "100%",
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={() => setIsDeleteModalOpen(false)}
-            >
-              취소
-            </Button>
-
-            <Button
-              variant="contained"
-              color="error"
-              onClick={deletePostHandler}
-            >
-              삭제
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
-      <Modal
+      <ConfirmModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
-      >
-        <Box
-          className="flex flex-col items-center"
-          sx={{
-            width: "100%",
-            bgcolor: "#fff",
-            borderRadius: "12px",
-            p: "40px",
-          }}
-        >
-          {/* 제목 */}
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: "8px" }}>
-            게시글 신고
-          </Typography>
-
-          {/* 설명 */}
-
-          <Typography
-            sx={{
-              fontSize: "20px",
-              color: "#666",
-              mb: "24px",
-            }}
-          >
-            게시글을 신고하시겠습니까?
-          </Typography>
-
-          {/* 버튼 영역 */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "16px",
-              width: "100%",
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={() => setIsReportModalOpen(false)}
-            >
-              취소
-            </Button>
-
-            <Button
-              variant="contained"
-              color="error"
-              onClick={reportPostHandler}
-            >
-              신고
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
-    </Box>
+        title="게시글 신고"
+        description="게시글을 신고하시겠습니까?"
+        confirmText="신고"
+        confirmColor="error"
+        onConfirm={reportHandler}
+      />
+    </>
   );
 };
 

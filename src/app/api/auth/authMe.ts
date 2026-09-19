@@ -13,10 +13,9 @@ export const fetchAuthMeWithCookie = async (accessToken: string) => {
       },
     );
 
-    // API 응답 구조에 따라 다르겠지만, 보통 성공하면 객체를 감싸서 반환합니다.
     if (res && res.data) {
       useAuthStore.setState({ isLogin: true });
-      // 반환 형식을 통일합니다.
+
       return res.data;
     }
 

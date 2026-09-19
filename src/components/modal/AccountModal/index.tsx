@@ -1,29 +1,49 @@
-import { Box } from "@mui/material";
+"use client";
+
 import React from "react";
 import Link from "next/link";
-import { FiSettings } from "react-icons/fi";
-import { CiFolderOn } from "react-icons/ci";
-import { IoCloseSharp } from "react-icons/io5";
 import { usePathname } from "next/navigation";
+
+import { Box, Typography } from "@mui/material";
+
+import { FiSettings } from "react-icons/fi";
+import { LuFolderClock } from "react-icons/lu";
+import { RiPlayList2Line } from "react-icons/ri";
+import { IoCloseSharp } from "react-icons/io5";
+
 const AccountModal = ({
   openAccountModalHandler,
 }: {
   openAccountModalHandler: () => void;
 }) => {
   const pathname = usePathname();
-  const isAccount = pathname === "/mypage/account";
-  const isActivity = pathname === "/mypage/activity";
 
-  // const [activeLink, setActiveLink] = React.useState<string>("");
-  // React.useEffect(() => {
-  //   setActiveLink(isAccount || isActivity ? "account" : "activity");
-  // }, [isAccount, isActivity]);
+  const menuItems = [
+    {
+      label: "내 계정 설정",
+      href: "/mypage/account",
+      icon: FiSettings,
+      active: pathname.startsWith("/mypage/account"),
+    },
+    {
+      label: "내 플레이리스트",
+      href: "/mypage/playlist",
+      icon: RiPlayList2Line,
+      active: pathname.startsWith("/mypage/playlist"),
+    },
+    {
+      label: "내 활동 내역",
+      href: "/mypage/activity",
+      icon: LuFolderClock,
+      active: pathname.startsWith("/mypage/activity"),
+    },
+  ];
 
   return (
     <Box
       onClick={openAccountModalHandler}
       sx={{
-        position: "absolute",
+        position: "fixed",
         inset: 0,
         zIndex: 21,
       }}
@@ -32,73 +52,192 @@ const AccountModal = ({
         onClick={(e) => e.stopPropagation()}
         sx={{
           position: "absolute",
-          top: "97px",
-          right: "0",
-          width: "323px",
-          height: "217px",
+
+          top: "88px",
+          right: {
+            xs: "16px",
+            sm: "24px",
+          },
+
+          width: {
+            xs: "calc(100% - 32px)",
+            sm: "320px",
+          },
+
+          maxWidth: "320px",
+
           backgroundColor: "#fff",
-          borderRadius: "13px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+
+          border: "1px solid #EEEEEE",
+          borderRadius: "16px",
+
+          boxShadow: "0 10px 35px rgba(0, 0, 0, 0.12)",
+
+          overflow: "hidden",
+
           zIndex: 22,
         }}
       >
-        <Box className="flex justify-between" sx={{ px: "48px", py: "24px" }}>
-          <Box sx={{ fontSize: "24px" }}>마이 페이지</Box>
+        {/* =========================
+            HEADER
+        ========================= */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+
+            px: "20px",
+            pt: "18px",
+            pb: "14px",
+          }}
+        >
+          <Box>
+            <Typography
+              sx={{
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "#181818",
+              }}
+            >
+              마이 페이지
+            </Typography>
+
+            <Typography
+              sx={{
+                mt: "2px",
+                fontSize: "11px",
+                color: "#999",
+              }}
+            >
+              계정과 활동을 관리할 수 있어요.
+            </Typography>
+          </Box>
+
           <Box
-            className="cursor-pointer flex items-center"
+            component="button"
+            type="button"
             onClick={openAccountModalHandler}
+            aria-label="마이페이지 메뉴 닫기"
+            sx={{
+              width: "34px",
+              height: "34px",
+
+              p: 0,
+
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+
+              flexShrink: 0,
+
+              border: 0,
+              borderRadius: "50%",
+
+              backgroundColor: "transparent",
+
+              color: "#555",
+
+              cursor: "pointer",
+
+              transition: "background-color 0.15s ease",
+
+              "&:hover": {
+                backgroundColor: "#F2F2F2",
+              },
+            }}
           >
-            <IoCloseSharp size={24} />
+            <IoCloseSharp size={21} />
           </Box>
         </Box>
-        <Box>
-          <Link href="/mypage/account" onClick={openAccountModalHandler}>
-            <Box
-              className="flex items-center gap-2"
-              sx={{
-                px: "60px",
-                py: "15px",
-                borderRadius: "8px",
-                cursor: "pointer",
-                "&:hover": {
-                  backgroundColor: "#F2F2F2",
-                },
-              }}
-            >
-              <FiSettings size={24} strokeWidth={isAccount ? 2.5 : 1} />
-              <Box
-                sx={{
-                  fontWeight: isAccount ? 700 : 400,
-                }}
-              >
-                내 계정 설정
-              </Box>
-            </Box>
-          </Link>
 
-          <Link href="/mypage/activity" onClick={openAccountModalHandler}>
-            <Box
-              className="flex items-center gap-2"
-              sx={{
-                px: "60px",
-                py: "15px",
-                borderRadius: "8px",
-                cursor: "pointer",
-                "&:hover": {
-                  backgroundColor: "#F2F2F2",
-                },
-              }}
-            >
-              <CiFolderOn size={24} strokeWidth={isActivity ? 1.5 : 1} />
-              <Box
-                sx={{
-                  fontWeight: isActivity ? 700 : 400,
+        {/* =========================
+            MENU
+        ========================= */}
+        <Box
+          sx={{
+            px: "10px",
+            pb: "10px",
+          }}
+        >
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={openAccountModalHandler}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
                 }}
               >
-                내 활동 내역
-              </Box>
-            </Box>
-          </Link>
+                <Box
+                  sx={{
+                    minHeight: "54px",
+
+                    px: "12px",
+                    py: "8px",
+
+                    display: "flex",
+                    alignItems: "center",
+
+                    gap: "12px",
+
+                    borderRadius: "10px",
+
+                    backgroundColor: item.active ? "#F3F3F3" : "transparent",
+
+                    cursor: "pointer",
+
+                    transition: "background-color 0.15s ease",
+
+                    "&:hover": {
+                      backgroundColor: item.active ? "#EEEEEE" : "#F7F7F7",
+                    },
+                  }}
+                >
+                  {/* ICON */}
+                  <Box
+                    sx={{
+                      width: "36px",
+                      height: "36px",
+
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+
+                      flexShrink: 0,
+
+                      borderRadius: "9px",
+
+                      backgroundColor: item.active ? "#181818" : "#F2F2F2",
+
+                      color: item.active ? "#fff" : "#555",
+
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <Icon size={19} />
+                  </Box>
+
+                  {/* LABEL */}
+                  <Typography
+                    sx={{
+                      fontSize: "14px",
+
+                      fontWeight: item.active ? 700 : 500,
+
+                      color: item.active ? "#181818" : "#444",
+                    }}
+                  >
+                    {item.label}
+                  </Typography>
+                </Box>
+              </Link>
+            );
+          })}
         </Box>
       </Box>
     </Box>

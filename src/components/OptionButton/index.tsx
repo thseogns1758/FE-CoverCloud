@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { Box, Button } from "@mui/material";
+import { Box } from "@mui/material";
 import { HiDotsHorizontal, HiDotsVertical } from "react-icons/hi";
-import Modal from "../modal/Modal";
 
 interface OptionButtonProps {
   isLogin: boolean;

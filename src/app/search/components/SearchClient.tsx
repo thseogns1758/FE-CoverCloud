@@ -13,7 +13,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import PostCard from "@/components/PostCard";
 import InfoMessage from "@/components/InfoMessage";
@@ -26,6 +26,7 @@ import { fetchAuthMeWithCookie } from "@/app/api/auth/authMe";
 import { useSnackbarStore } from "@/app/store/useSnackbar";
 import { useModalStore } from "@/app/store/useModalStore";
 import { useAuthStore } from "@/app/store/useAuthStore";
+import { useSearchParamUpdater } from "@/app/hook/useSearchParamsUpdater";
 
 type SearchType = "title" | "tags";
 
@@ -38,29 +39,51 @@ const searchTabs: SearchTab[] = [
   { title: "제목", searchType: "title" },
   { title: "태그", searchType: "tags" },
 ];
+
 type SortType = "LATEST" | "POPULAR";
 
 const sortOptions: { label: string; value: SortType }[] = [
   { label: "최신순", value: "LATEST" },
   { label: "인기순", value: "POPULAR" },
 ];
+
 export const dynamic = "force-dynamic";
+
 export default function SearchClient() {
   const theme = useTheme();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { searchParams, updateParams, getNumberParam } =
+    useSearchParamUpdater();
+
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { openLoginModal } = useModalStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
+
   /* =========================
      URL → 상태 파싱
   ========================= */
   const query = searchParams.get("q") ?? "";
-  const page = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const sortBy = (searchParams.get("sort") as SortType) ?? "LATEST";
-  const searchType = (searchParams.get("searchType") as SearchType) ?? "title";
-  const accessToken = useAuthStore((state) => state.accessToken);
+
+  const page = Math.max(1, getNumberParam("page", 1));
+
+  const sortParam = searchParams.get("sort");
+
+  const sortBy: SortType = sortOptions.some(
+    (option) => option.value === sortParam,
+  )
+    ? (sortParam as SortType)
+    : "LATEST";
+
+  const searchTypeParam = searchParams.get("searchType");
+
+  const searchType: SearchType = searchTabs.some(
+    (tab) => tab.searchType === searchTypeParam,
+  )
+    ? (searchTypeParam as SearchType)
+    : "title";
+
   const selectedTab =
-    searchTabs.find((t) => t.searchType === searchType) ?? searchTabs[0];
+    searchTabs.find((tab) => tab.searchType === searchType) ?? searchTabs[0];
 
   /* =========================
      검색
@@ -74,42 +97,36 @@ export default function SearchClient() {
   });
 
   /* =========================
-     URL 변경 헬퍼
-  ========================= */
-  const updateParams = (next: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    Object.entries(next).forEach(([key, value]) => {
-      params.set(key, value);
-    });
-
-    router.push(`/search?${params.toString()}`, {
-      scroll: false,
-    });
-  };
-
-  /* =========================
      핸들러
   ========================= */
   const handleTabChange = (tab: SearchTab) => {
+    if (tab.searchType === searchType && page === 1) return;
+
     updateParams({
       searchType: tab.searchType,
-      page: "1", // 탭 바뀌면 페이지 초기화
+      page: 1,
     });
   };
 
-  const handlePageChange = (_: any, value: number) => {
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
+    if (value === page) return;
+
     updateParams({
-      page: String(value),
+      page: value,
     });
-    window.scrollTo({ top: 0, behavior: "instant" });
+
+    window.scrollTo({ top: 0, behavior: "auto" });
   };
+
   const handleSortChange = (value: SortType) => {
+    if (value === sortBy && page === 1) return;
+
     updateParams({
       sort: value,
-      page: "1", // 정렬 바꾸면 페이지 초기화
+      page: 1,
     });
   };
+
   const handleRecommendClick = async () => {
     const isAuthenticated = await fetchAuthMeWithCookie(accessToken);
 
@@ -120,8 +137,10 @@ export default function SearchClient() {
         .show("로그인 후 추천할 수 있습니다.", "error");
       return;
     }
+
     router.push("/post/create");
   };
+
   /* =========================
      스타일
   ========================= */
@@ -135,7 +154,7 @@ export default function SearchClient() {
       backgroundColor: theme.palette.gray.secondary,
     },
   });
-  // TODO: 로딩 상태 처리
+
   if (isLoading) {
     return (
       <Box
@@ -154,9 +173,6 @@ export default function SearchClient() {
       </Box>
     );
   }
-  /* =========================
-     결과 없음
-  ========================= */
 
   return (
     <Box>
@@ -172,6 +188,7 @@ export default function SearchClient() {
           </Button>
         ))}
       </Box>
+
       <Box
         className={`flex justify-between ${isMobile ? "flex-col gap-2" : ""}`}
         sx={{ mb: "44px", pl: "8px" }}
@@ -197,6 +214,7 @@ export default function SearchClient() {
           </span>
           <span>{searchType === "title" ? "제목" : "태그"} 검색 결과</span>
         </Typography>
+
         <Box className="flex justify-end xs:w-full" sx={{ minWidth: 120 }}>
           <Select
             size="small"
@@ -261,6 +279,7 @@ export default function SearchClient() {
               />
               <Box>최신순</Box>
             </MenuItem>
+
             <MenuItem value="POPULAR">
               <FavoriteBorderSharpIcon
                 fontSize="small"
@@ -271,6 +290,7 @@ export default function SearchClient() {
           </Select>
         </Box>
       </Box>
+
       {!data?.data.content.length ? (
         <InfoMessage
           subMessage={query ? `"${query}"` : ""}

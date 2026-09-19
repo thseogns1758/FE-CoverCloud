@@ -1,7 +1,7 @@
 import React from "react";
 import { Box } from "@mui/material";
-import ArtistProfile from "../../../../components/ArtistProfile";
-import { ArtistProfileMobileProps } from "../../../../components/ArtistProfile/type";
+import ArtistProfile from "../../../../app/post/components/ArtistProfile";
+import { ArtistProfileMobileProps } from "../../../../app/post/components/ArtistProfile/type";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import theme from "@/app/lib/theme";

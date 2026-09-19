@@ -24,7 +24,6 @@ import { useSnackbarStore } from "@/app/store/useSnackbar";
 
 import { useModalStore } from "@/app/store/useModalStore";
 import { useFormatCreatedAt } from "@/app/utils/formetCreatedAt";
-import { requireAuth } from "@/app/utils/requireAuth";
 import { reportComment } from "@/app/api/cover/reportPost";
 
 interface CommentItemProps extends CommentListData {
@@ -71,7 +70,7 @@ const CommentItem = ({
 
   const likeComment = useCommentLikeMutation();
   const likeCommentHandler = async () => {
-    if (!isLogin && !accessToken) {
+    if (!isLogin || !accessToken) {
       openLoginModal();
       useSnackbarStore
         .getState()
@@ -87,7 +86,7 @@ const CommentItem = ({
   };
 
   const deleteCommentHandler = () => {
-    if (!isLogin && !accessToken) {
+    if (!isLogin || !accessToken) {
       openLoginModal();
       useSnackbarStore
         .getState()
@@ -125,7 +124,7 @@ const CommentItem = ({
     if (normalizedComment === content) {
       return;
     }
-    if (!isLogin && !accessToken) {
+    if (!isLogin || !accessToken) {
       openLoginModal();
       useSnackbarStore
         .getState()
@@ -154,7 +153,7 @@ const CommentItem = ({
     );
   };
   const reportCommentHandler = async () => {
-    if (!isLogin && !accessToken) {
+    if (!isLogin || !accessToken) {
       openLoginModal();
       useSnackbarStore
         .getState()

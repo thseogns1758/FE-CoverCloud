@@ -7,13 +7,14 @@ import InfoMessage from "@/components/InfoMessage";
 import { useAuthStore } from "@/app/store/useAuthStore";
 import { contentData } from "@/app/main/type";
 import PostCard from "@/components/PostCard";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMyCoverListQuery } from "@/app/api/mypage/myCoverList";
 import Login from "@/components/auth/Login";
 import { fetchAuthMeWithCookie, useAuthMeQuery } from "@/app/api/auth/authMe";
 import { useModalStore } from "@/app/store/useModalStore";
 import { useSnackbarStore } from "@/app/store/useSnackbar";
 import Loading from "@/app/main/loading";
+import { useSearchParamUpdater } from "@/app/hook/useSearchParamsUpdater";
 
 export const dynamic = "force-dynamic";
 
@@ -26,23 +27,29 @@ const activityTabs: { type: ActivityType; name: string }[] = [
 ];
 
 export default function ActivityClient() {
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const { searchParams, updateParams, getNumberParam } =
+    useSearchParamUpdater();
+
   const { openLoginModal } = useModalStore();
   const isLogin = useAuthStore((state) => state.isLogin);
   const accessToken = useAuthStore((state) => state.accessToken);
 
   /* =========================
-     URL → 상태 파싱 (상태값 제거)
+     URL → 상태 파싱
   ========================= */
-  const page = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const currentTabType =
-    (searchParams.get("tab") as ActivityType) ?? "recommend";
+  const page = Math.max(1, getNumberParam("page", 1));
 
-  // 현재 선택된 탭의 인덱스 찾기
-  const selectedTabIndex = activityTabs.findIndex(
-    (t) => t.type === currentTabType,
-  );
+  const tabParam = searchParams.get("tab");
+
+  const currentTabType: ActivityType = activityTabs.some(
+    (tab) => tab.type === tabParam,
+  )
+    ? (tabParam as ActivityType)
+    : "recommend";
+
+  const selectedTab =
+    activityTabs.find((tab) => tab.type === currentTabType) ?? activityTabs[0];
 
   /* =========================
      API 데이터 페칭
@@ -51,7 +58,7 @@ export default function ActivityClient() {
 
   const { data, isLoading } = useMyCoverListQuery(
     accessToken,
-    page - 1, // API가 0-base index라면 page-1 처리
+    page - 1,
     18,
     currentTabType,
   );
@@ -63,35 +70,27 @@ export default function ActivityClient() {
   }, []);
 
   /* =========================
-     URL 변경 헬퍼 (updateParams)
-  ========================= */
-  const updateParams = (next: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(next).forEach(([key, value]) => {
-      params.set(key, value);
-    });
-
-    router.push(`/mypage/activity?${params.toString()}`, {
-      scroll: false,
-    });
-  };
-
-  /* =========================
      핸들러
   ========================= */
   const activityTabChangeHandler = (type: ActivityType) => {
+    if (type === currentTabType && page === 1) return;
+
     updateParams({
       tab: type,
-      page: "1", // 탭 변경 시 페이지 1로 초기화
+      page: 1,
     });
   };
 
   const pageChangeHandler = (_: React.ChangeEvent<unknown>, value: number) => {
+    if (value === page) return;
+
     updateParams({
-      page: String(value),
+      page: value,
     });
-    window.scrollTo({ top: 0, behavior: "instant" });
+
+    window.scrollTo({ top: 0, behavior: "auto" });
   };
+
   const linkHandler = (type: string) => {
     if (type === "recommend") {
       handleRecommendClick();
@@ -102,6 +101,7 @@ export default function ActivityClient() {
 
   const handleRecommendClick = async () => {
     const isAuthenticated = await fetchAuthMeWithCookie(accessToken);
+
     if (!isAuthenticated.success) {
       openLoginModal();
       useSnackbarStore
@@ -109,11 +109,12 @@ export default function ActivityClient() {
         .show("로그인 후 추천할 수 있습니다.", "error");
       return;
     }
+
     router.push("/post/create");
   };
   console.log(authMeData);
   /* =========================
-     조건부 렌더링
+     스타일
   ========================= */
   const activityTabSx = (type: ActivityType) => ({
     color:
@@ -181,6 +182,7 @@ export default function ActivityClient() {
               </Grid>
             ))}
           </Grid>
+
           <Box className="mt-8 flex justify-center">
             <Pagination
               count={data.data.totalPages || 1}
@@ -193,18 +195,16 @@ export default function ActivityClient() {
       ) : (
         <InfoMessage
           message={
-            activityTabs[selectedTabIndex].type === "comment"
-              ? `아직 ${activityTabs[selectedTabIndex].name}을 단 곡이 없습니다.\n새로운 곡을 찾아볼까요?`
-              : activityTabs[selectedTabIndex].type === "like"
-                ? `아직 ${activityTabs[selectedTabIndex].name}를 누른 곡이 없습니다.\n새로운 곡을 찾아볼까요?`
-                : `아직 ${activityTabs[selectedTabIndex].name}한 곡이 없습니다.\n새로운 곡을 추천하시겠어요?`
+            selectedTab.type === "comment"
+              ? `아직 ${selectedTab.name}을 단 곡이 없습니다.\n새로운 곡을 찾아볼까요?`
+              : selectedTab.type === "like"
+                ? `아직 ${selectedTab.name}를 누른 곡이 없습니다.\n새로운 곡을 찾아볼까요?`
+                : `아직 ${selectedTab.name}한 곡이 없습니다.\n새로운 곡을 추천하시겠어요?`
           }
           buttonText={
-            activityTabs[selectedTabIndex].type === "recommend"
-              ? "곡 추천하기"
-              : "최신글 보러가기"
+            selectedTab.type === "recommend" ? "곡 추천하기" : "최신글 보러가기"
           }
-          onClick={() => linkHandler(activityTabs[selectedTabIndex].type)}
+          onClick={() => linkHandler(selectedTab.type)}
         />
       )}
     </Box>

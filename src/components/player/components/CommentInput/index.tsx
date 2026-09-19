@@ -1,15 +1,11 @@
 "use client";
 import React from "react";
-import { Avatar, Box, Button, TextField, Typography } from "@mui/material";
-import Image from "next/image";
-import Skeleton from "@mui/material/Skeleton";
+import { Avatar, Box, Button, TextField } from "@mui/material";
 import theme from "@/app/lib/theme";
 import { useCreateCommentMutation } from "@/app/api/cover/comment";
 import { useAuthStore } from "@/app/store/useAuthStore";
 import { useSnackbarStore } from "@/app/store/useSnackbar";
-import { fetchAuthMeWithCookie, useAuthMeQuery } from "@/app/api/auth/authMe";
 import { useModalStore } from "@/app/store/useModalStore";
-import { requireAuth } from "@/app/utils/requireAuth";
 const DEFAULT_IMAGE = "/asset/image/default-image.png";
 interface CommentInputProps {
   onSubmit: (data: string) => void;
@@ -41,7 +37,7 @@ const CommentInput = ({
     e.preventDefault();
     const normalizedComment = comment.trim();
     if (!normalizedComment) return;
-    if (!isLogin && !accessToken) {
+    if (!isLogin || !accessToken) {
       openLoginModal();
       useSnackbarStore
         .getState()

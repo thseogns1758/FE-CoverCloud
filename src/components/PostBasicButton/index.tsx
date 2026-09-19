@@ -11,6 +11,7 @@ const PostBasicButton = ({
   sxStyle,
   postRadius = "15px",
   postClass = "",
+  icon = null,
 }: {
   children: string | React.ReactNode;
   onClick: () => void;
@@ -21,6 +22,7 @@ const PostBasicButton = ({
   postRadius?: string;
   sxStyle?: React.CSSProperties;
   postClass?: string;
+  icon?: React.ReactNode;
 }) => {
   return (
     <Button
@@ -37,6 +39,7 @@ const PostBasicButton = ({
       }}
       onClick={onClick}
     >
+      {icon && <Box>{icon}</Box>}
       <Box className={postClass}>{children}</Box>
     </Button>
   );

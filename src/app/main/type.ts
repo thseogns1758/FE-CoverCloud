@@ -12,15 +12,15 @@ export type contentData = {
   commentCount: number;
   coverArtist: string;
   coverGenre: string;
-  coverId: number;
+  coverId?: number;
   coverTitle: string;
   createdAt: string;
   likeCount: number;
   link: string;
   musicId: number;
-  tags: string[];
+  tags?: string[];
   userId: number;
-  viewCount: number;
+  viewCount?: number;
 };
 
 export type Genre = {
