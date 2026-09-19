@@ -13,7 +13,7 @@ export type PlaylistItem = {
   originalArtist: string;
   originalCoverImageUrl: string;
   originalTitle: string;
-
+  tags?: string[];
   position: number;
 };
 

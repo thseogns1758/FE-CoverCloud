@@ -552,6 +552,7 @@ const PlaylistVideos = ({
                   createdAt=""
                   likeCount={post.likeCount ?? 0}
                   link={post.link}
+                  tags={post.tags ?? []}
                   musicId={0}
                   userId={0}
                   commentCount={0}

@@ -328,7 +328,6 @@ const PostCard: React.FC<PostCardProps> = ({
                   </span>
                 ))}
               </Box>
-              <Box className="w-[1px] h-4 bg-black flex-shrink-0" />
             </Box>
           )}
 
