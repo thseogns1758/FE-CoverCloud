@@ -32,7 +32,7 @@ export const readingPost = async (coverId: string) => {
   try {
     const res = await api.get(`/api/cover/list/${coverId}`);
 
-    return res.data.data;
+    return res.data;
   } catch (error) {
     throw error;
   }

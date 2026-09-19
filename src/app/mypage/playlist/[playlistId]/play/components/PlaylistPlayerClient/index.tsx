@@ -196,8 +196,7 @@ const PlaylistPlayerClient = ({ playlistId }: PlaylistPlayerClientProps) => {
     error: postError,
   } = useReadingPost(currentCoverId ? String(currentCoverId) : "");
 
-  const post = postData?.data?.data;
-
+  const post = postData?.data;
   const getAspectRatio = (videoData: MediaUrlResult | null) => {
     if (!videoData || !videoData.platform) {
       return "16 / 9";
