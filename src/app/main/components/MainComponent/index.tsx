@@ -5,8 +5,9 @@ import Grid from "@mui/material/Grid";
 import PostCard from "../../../../components/PostCard";
 import Box from "@mui/material/Box";
 import Pagination from "@mui/material/Pagination";
-import { useRouter } from "next/navigation";
-import { Button, CircularProgress, useMediaQuery } from "@mui/material";
+import { useSearchParamUpdater } from "@/app/hook/useSearchParamsUpdater";
+
+import { Button, CircularProgress } from "@mui/material";
 import {
   CoverListPageResponse,
   usePopularCoverListQuery,
@@ -16,7 +17,6 @@ import { useTheme } from "@mui/material/styles";
 import InfoMessage from "@/components/InfoMessage";
 import { Period } from "@/app/api/cover/list";
 import MainBanner from "../MainBanner";
-import { useSearchParamUpdater } from "@/app/hook/useSearchParamsUpdater";
 
 type PopularTab = {
   title: string;
@@ -43,8 +43,6 @@ const MainComponent = ({
   initialData?: CoverListPageResponse;
 }) => {
   const theme = useTheme();
-  const router = useRouter();
-
   const { searchParams, updateParams } = useSearchParamUpdater();
 
   /* =========================
